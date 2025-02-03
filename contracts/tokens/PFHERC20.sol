@@ -154,12 +154,17 @@ contract PFHERC20 is Ownable2Step, Permissioned {
         return _transferImpl(from, to, spent);
     }
 
-    function mint(address to, euint32 encryptedAmount) public onlyOwner {
+    function mint(address to, inEuint32 calldata value) public onlyOwner {
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
-        _balances[to] = _balances[to] + encryptedAmount;
-        _totalSupply = _totalSupply + encryptedAmount;
+        euint32 encryptedAmount = FHE.asEuint32(value);
+        _mint(to, encryptedAmount);
+    }
+
+    function _mint(address to, euint32 value) public onlyOwner {
+        _balances[to] = _balances[to] + value;
+        _totalSupply = _totalSupply + value;
     }
 
     function burn(

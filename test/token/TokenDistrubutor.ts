@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { expect } from "chai";
 import hre, { ethers, fhenixjs } from "hardhat";
 import { TokenDistributor ,PFHERC20} from "../../typechain-types";

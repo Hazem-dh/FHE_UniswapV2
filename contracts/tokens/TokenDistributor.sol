@@ -16,6 +16,6 @@ contract TokenDistributor is Ownable {
     }
 
     function claim(address tokenAddress) external {
-        PFHERC20(tokenAddress).mint(msg.sender, amount);
+        PFHERC20(tokenAddress)._mint(msg.sender, amount);
     }
 }
