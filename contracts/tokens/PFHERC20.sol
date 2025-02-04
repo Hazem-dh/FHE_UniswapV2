@@ -107,8 +107,9 @@ contract PFHERC20 is Ownable2Step, Permissioned {
 
     function approve(
         address spender,
-        inEuint32 calldata value
-    ) public virtual returns (bool) {
+        inEuint32 calldata value,
+        Permission memory permission
+    ) public virtual onlyPermitted(permission, msg.sender) returns (bool) {
         _approve(msg.sender, spender, FHE.asEuint32(value));
         return true;
     }
@@ -129,30 +130,35 @@ contract PFHERC20 is Ownable2Step, Permissioned {
         euint32 value
     ) internal virtual returns (euint32) {
         euint32 currentAllowance = _allowance[owner][spender];
-        euint32 spent = FHE.min(currentAllowance, value);
+        ebool isHigher = currentAllowance.gt(value);
+
+        euint32 spent = FHE.select(isHigher, value, FHE.asEuint32(0));
+
         _approve(owner, spender, (currentAllowance - spent));
 
         return spent;
     }
 
-    //TODO implement
     function transferFrom(
         address from,
         address to,
-        inEuint32 calldata value
-    ) public virtual returns (euint32) {
-        return _transferFrom(from, to, FHE.asEuint32(value));
+        inEuint32 calldata value,
+        Permission memory permission
+    )
+        public
+        virtual
+        onlyBetweenPermitted(permission, from, to)
+        returns (euint32)
+    {
+        euint32 spent = _spendAllowance(from, msg.sender, FHE.asEuint32(value));
+        return _transferImpl(from, to, spent);
     }
 
     function _transferFrom(
         address from,
         address to,
         euint32 value
-    ) internal virtual returns (euint32) {
-        euint32 val = value;
-        euint32 spent = _spendAllowance(from, msg.sender, val);
-        return _transferImpl(from, to, spent);
-    }
+    ) internal virtual returns (euint32) {}
 
     function mint(address to, inEuint32 calldata value) public onlyOwner {
         if (to == address(0)) {
@@ -209,7 +215,7 @@ contract PFHERC20 is Ownable2Step, Permissioned {
         // Add to the balance of `to` and subract from the balance of `from`.
         _balances[to] = _balances[to] + amountToSend;
         _balances[from] = _balances[from] - amountToSend;
-        // TODO : it has no sense to return and encrypted amount
+        // TODO : it has no sense to return an encrypted amount
         return amountToSend;
     }
 }

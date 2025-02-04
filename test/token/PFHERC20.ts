@@ -62,6 +62,18 @@ describe("PFHERC20", function () {
     expect(balanceAfter).to.equal(100);
   });
 
+  it("should not read balance of someone else", async function () {
+    // create permission for signer 
+    const permission = await createPermissionForContract(
+      hre,
+      signer2,
+      PFHERC20Address,
+    );
+    await expect(PFHERC20.connect(signer2).balanceOf(signer1, permission)).to.be.revertedWithCustomError(PFHERC20, "SignerNotOwner");
+
+  });
+
+
   it("should transfer tokens", async function () {
     //mint token 
     let encrypted_mint = await fhenixjs.encrypt_uint32(100)
@@ -151,6 +163,121 @@ describe("PFHERC20", function () {
       signer2.address,
     );
     expect(balanceSigner2).to.equal(0);
+
+  });
+
+
+  it("should be able to transferFrom only if allowance is sufficient", async function () {
+    const permission1 = await createPermissionForContract(
+      hre,
+      signer1,
+      PFHERC20Address,
+    );
+    const permission2 = await createPermissionForContract(
+      hre,
+      signer2,
+      PFHERC20Address,
+    );
+    let encrypted_mint = await fhenixjs.encrypt_uint32(100)
+
+    const transaction = await PFHERC20.mint(signer1, encrypted_mint);
+    await transaction.wait();
+
+    let encrypted_approve = await fhenixjs.encrypt_uint32(50)
+    const tx = await PFHERC20.connect(signer1).approve(signer2, encrypted_approve, permission1)
+    await tx.wait();
+
+    const allowancSigner2Encrypted = await PFHERC20.allowance(signer1, signer2, permission2);
+    const allowanceSigner2 = fhenixjs.unseal(
+      PFHERC20Address,
+      allowancSigner2Encrypted,
+      signer2.address,
+    );
+    expect(allowanceSigner2).to.equal(50);
+
+
+    let encrypted_transferfrom = await fhenixjs.encrypt_uint32(70)
+    const encryptedTransferAmount = await PFHERC20.connect(signer2).transferFrom(signer1, signer2, encrypted_transferfrom, permission2);
+
+    await encryptedTransferAmount.wait();
+
+    const permission1balance = await createPermissionForContract(
+      hre,
+      signer1,
+      PFHERC20Address,
+    );
+    const balanceSigner1Encrypted = await PFHERC20.balanceOf(signer1, permission1balance);
+    const balanceSigner1 = fhenixjs.unseal(
+      PFHERC20Address,
+      balanceSigner1Encrypted,
+      signer1.address,
+    );
+
+
+    expect(balanceSigner1).to.equal(100);
+
+    const permission2balance = await createPermissionForContract(
+      hre,
+      signer2,
+      PFHERC20Address,
+    );
+    const balanceSigner2Encrypted = await PFHERC20.balanceOf(signer2, permission2balance);
+    const balanceSigner2 = fhenixjs.unseal(
+      PFHERC20Address,
+      balanceSigner2Encrypted,
+      signer2.address,
+    );
+    expect(balanceSigner2).to.equal(0);
+
+
+
+    let encrypted_transferfromPass = await fhenixjs.encrypt_uint32(30)
+    const encryptedTransferAmountPass = await PFHERC20.connect(signer2).transferFrom(signer1, signer2, encrypted_transferfromPass, permission2);
+    encryptedTransferAmountPass.wait()
+    const permission2Allowance = await createPermissionForContract(
+      hre,
+      signer2,
+      PFHERC20Address,
+    );
+    const allowancSigner2EncryptedPass = await PFHERC20.allowance(signer1, signer2, permission2Allowance);
+
+
+    const allowanceSigner2Pass = fhenixjs.unseal(
+      PFHERC20Address,
+      allowancSigner2EncryptedPass,
+      signer2.address,
+    );
+    expect(allowanceSigner2Pass).to.equal(20);
+
+
+
+    const permission2NewBalance = await createPermissionForContract(
+      hre,
+      signer2,
+      PFHERC20Address,
+    );
+    const balanceSigner2EncryptedPass = await PFHERC20.balanceOf(signer2, permission2NewBalance);
+    const balanceSigner2Pass = fhenixjs.unseal(
+      PFHERC20Address,
+      balanceSigner2EncryptedPass,
+      signer2.address,
+    );
+    expect(balanceSigner2Pass).to.equal(30);
+
+
+    const permission1NewBalance = await createPermissionForContract(
+      hre,
+      signer1,
+      PFHERC20Address,
+    );
+    const balanceSigner1EncryptedPass = await PFHERC20.balanceOf(signer1, permission1NewBalance);
+    const balanceSigner1Pass = fhenixjs.unseal(
+      PFHERC20Address,
+      balanceSigner1EncryptedPass,
+      signer1.address,
+    );
+    expect(balanceSigner1Pass).to.equal(100 - 30);
+
 
   });
 })
