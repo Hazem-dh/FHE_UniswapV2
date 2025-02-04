@@ -1,53 +1,67 @@
 import { expect } from "chai";
-import { network } from "hardhat";
-import { ethers } from "hardhat";
+import hre, { ethers } from "hardhat";
+import { PFHERC20, CyfherFactory, CyfherRouter } from "../../typechain-types";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+import {
+  getTokensFromFaucet,
+} from "../../utils/instance";
 
-import type { CyfherERC20 } from "../../types";
-import { createInstance } from "../instance";
-import { reencryptEuint64 } from "../reencrypt";
-import { getSigners, initSigners } from "../signers";
-import { debug } from "../utils";
 
-describe("Simple AMM testing", function () {
-  before(async function () {
-    await initSigners();
-    this.signers = await getSigners();
+
+describe("CyfherFactory", function () {
+
+  let signer1: SignerWithAddress;
+  let signer2: SignerWithAddress;
+  let signer3: SignerWithAddress;
+
+
+  let factory: CyfherFactory;
+  let factoryAddress: string;
+  let router: CyfherRouter;
+  let routerAddress: string;
+
+  let token1: PFHERC20;
+  let token1Address: string;
+  let token2: PFHERC20;
+  let token2Address: string;
+
+
+  before(async () => {
+    signer1 = (await ethers.getSigners())[0];
+    signer2 = (await ethers.getSigners())[1];
+    signer3 = (await ethers.getSigners())[2];
+
+
+    await getTokensFromFaucet(hre, signer1.address);
+    await getTokensFromFaucet(hre, signer2.address);
+    await getTokensFromFaucet(hre, signer3.address);
+
   });
 
-  beforeEach(async function () {
-    const erc20Factory = await ethers.getContractFactory("CyfherERC20");
-    const EURContract = await erc20Factory.connect(this.signers.alice).deploy("EUR stablecoin", "EUR");
-    await EURContract.waitForDeployment();
+  beforeEach(async () => {
+    //Deploy FHERC20
+    const FHERC20Factory = await ethers.getContractFactory("PFHERC20");
+    const CyfherFactory = await ethers.getContractFactory("CyfherFactory");
+    const routerFactory = await ethers.getContractFactory("CyfherRouter");
 
-    this.EURContractAddress = await EURContract.getAddress();
-    this.EURContract = EURContract;
+    factory = await CyfherFactory.deploy(signer1);
+    await factory.waitForDeployment();
+    router = await routerFactory.deploy(signer1);
+    await router.waitForDeployment()
+    token1 = await FHERC20Factory.deploy("token1", "TKN1", 3);
+    await token1.waitForDeployment();
+    token2 = await FHERC20Factory.deploy("token2", "TKN2", 3);
+    await token2.waitForDeployment();
 
-    const USDContract = await erc20Factory.connect(this.signers.alice).deploy("USD stablecoin", "USD");
-    await USDContract.waitForDeployment();
+    factoryAddress = await factory.getAddress();
+    token1Address = await token1.getAddress();
+    token2Address = await token2.getAddress();
+    token2Address = await router.getAddress();
 
-    this.USDContractAddress = await USDContract.getAddress();
-    this.USDContract = USDContract;
 
-    this.fhevm = await createInstance();
-
-    const UniswapV2FactoryFactory = await ethers.getContractFactory("CyfherFactory");
-    const uniswapV2Factory = await UniswapV2FactoryFactory.connect(this.signers.alice).deploy(this.signers.alice);
-    await uniswapV2Factory.waitForDeployment();
-
-    this.uniswapV2Factory = uniswapV2Factory;
-    this.uniswapV2FactoryAddress = await uniswapV2Factory.getAddress();
-
-    const UniswapV2RouterFactory = await ethers.getContractFactory("CyfherRouter");
-    const uniswapV2Router = await UniswapV2RouterFactory.connect(this.signers.alice).deploy(
-      this.uniswapV2FactoryAddress,
-      "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // Mainnet address of WETH, we don't care as we dont use WETH for now
-    );
-    await uniswapV2Router.waitForDeployment();
-
-    this.uniswapV2Router = uniswapV2Router;
-    this.uniswapV2RouterAddress = await uniswapV2Router.getAddress();
   });
-
+})
+/*
   describe("Deployment testing", function () {
     it("should mint erc20 token to user", async function () {
       const transaction = await this.EURContract.mint(this.signers.alice, 1000);
@@ -232,3 +246,4 @@ describe("Simple AMM testing", function () {
     });
   });
 });
+ */

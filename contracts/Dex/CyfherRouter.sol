@@ -21,24 +21,35 @@ contract CyfherRouter {
         _;
     }
 
-    constructor(address _factory, address _WETH) {
+    constructor(address _factory) {
         factory = _factory;
     }
 
-    // **** ADD LIQUIDITY ****
-    /*   function _addLiquidity(
+    function addLiquidity(
         address tokenA,
         address tokenB,
-        inEuint32 calldata amountADesired,
-        inEuint32 calldata amountBDesired
-    ) internal virtual returns (euint32 amountA, euint32 amountB) {
+        inEuint32 calldata encryptedAmountADesired,
+        inEuint32 calldata encryptedAmountBDesired,
+        Permission memory permission
+    )
+        external
+        virtual
+        returns (
+            //returns (euint32 amountA, euint32 amountB, euint32 liquidity)
+            euint32 liquidity
+        )
+    {
+        euint32 amountADesired = FHE.asEuint32(encryptedAmountADesired);
+        euint32 amountBDesired = FHE.asEuint32(encryptedAmountBDesired);
+        // creating the pair
         if (ICyfherFactory(factory).getPair(tokenA, tokenB) == address(0)) {
             ICyfherFactory(factory).createPair(tokenA, tokenB);
         }
         //(uint256 reserveA, uint256 reserveB) = UniswapV2Library.getReserves(factory, tokenA, tokenB);
 
         //if (reserveA == 0 && reserveB == 0) {
-        (amountA, amountB) = (amountADesired, amountBDesired);
+        // For Now we will do only the first add liquidity and mint
+        // (amountA, amountB) = (amountADesired, amountBDesired);
         //} else {
         // uint256 amountBOptimal = UniswapV2Library.quote(amountADesired, reserveA, reserveB);
         // if (amountBOptimal <= amountBDesired) {
@@ -51,44 +62,21 @@ contract CyfherRouter {
         //     (amountA, amountB) = (amountAOptimal, amountBDesired);
         // }
         //}
-    } */
-
-    // ERROR STACK TOO DEEP IF I USE 4 INPUT VARIABLES. Temporarily use 2, will implement struct() later on.
-    /*  function addLiquidity(
-        address tokenA,
-        address tokenB,
-        inEuint32 calldata encryptedAmountADesired,
-        inEuint32 calldata encryptedAmountBDesired,
-        bytes calldata permission,
-        address to
-    )
-        external
-        virtual
-        returns (euint32 amountA, euint32 amountB, euint32 liquidity)
-    {
-        euint32 amountADesired = FHE.asEuint32(
-            encryptedAmountADesired,
-            inputProof
-        );
-        euint32 amountBDesired = FHE.asEuint32(
-            encryptedAmountBDesired,
-            inputProof
-        );
-
-        (amountA, amountB) = _addLiquidity(
-            tokenA,
-            tokenB,
-            amountADesired,
-            amountBDesired
-        );
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
 
-        FHE.allowTransient(amountA, tokenA);
-        FHE.allowTransient(amountB, tokenB);
+        ICyfherERC20(tokenA).unsafe_transferFrom(
+            msg.sender,
+            pair,
+            amountADesired,
+            permission
+        );
+        ICyfherERC20(tokenB).unsafe_transferFrom(
+            msg.sender,
+            pair,
+            amountBDesired,
+            permission
+        );
 
-        ICyfherERC20(tokenA).transferFrom(msg.sender, pair, amountA);
-        ICyfherERC20(tokenB).transferFrom(msg.sender, pair, amountB);
-
-        liquidity = ICyfherPair(pair).mint(to);
-    } */
+        liquidity = ICyfherPair(pair).mint(msg.sender);
+    }
 }

@@ -1,77 +1,105 @@
 import { expect } from "chai";
-import { ethers } from "ethers";
+import hre, { ethers } from "hardhat";
+import { PFHERC20, CyfherFactory } from "../../typechain-types";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+import {
+  getTokensFromFaucet,
+} from "../../utils/instance";
 
-import { createInstance } from "../instance";
-import { getSigners, initSigners } from "../signers";
-import { deployPrivateEURFixture } from "../token/PrivateEUR.fixture";
-import { deployPrivateUSDFixture } from "../token/PrivateUSD.fixture";
-import { deployCyfherFactoryFixture } from "./CyfherFactory.fixture";
+
 
 describe("CyfherFactory", function () {
-  before(async function () {
-    await initSigners();
-    this.signers = await getSigners();
+
+  let signer1: SignerWithAddress;
+  let signer2: SignerWithAddress;
+  let signer3: SignerWithAddress;
+
+
+  let factory: CyfherFactory;
+  let factoryAddress: string;
+
+  let token1: PFHERC20;
+  let token1Address: string;
+  let token2: PFHERC20;
+  let token2Address: string;
+
+
+  before(async () => {
+    signer1 = (await ethers.getSigners())[0];
+    signer2 = (await ethers.getSigners())[1];
+    signer3 = (await ethers.getSigners())[2];
+
+
+    await getTokensFromFaucet(hre, signer1.address);
+    await getTokensFromFaucet(hre, signer2.address);
+    await getTokensFromFaucet(hre, signer3.address);
+
+
   });
 
-  beforeEach(async function () {
-    // deploying contracts
-    const contractFactory = await deployCyfherFactoryFixture();
-    const contractFactoryToken0 = await deployPrivateEURFixture();
-    const contractFactoryToken1 = await deployPrivateUSDFixture();
-    this.FactoryAddress = await contractFactory.getAddress();
-    this.Token0Address = await contractFactoryToken0.getAddress();
-    this.Token1Address = await contractFactoryToken1.getAddress();
+  beforeEach(async () => {
+    //Deploy FHERC20
+    const FHERC20Factory = await ethers.getContractFactory("PFHERC20");
+    const CyfherFactory = await ethers.getContractFactory("CyfherFactory");
+    factory = await CyfherFactory.deploy(signer1);
+    await factory.waitForDeployment();
+    token1 = await FHERC20Factory.deploy("token1", "TKN1", 3);
+    await token1.waitForDeployment();
+    token2 = await FHERC20Factory.deploy("token2", "TKN2", 3);
+    await token2.waitForDeployment();
 
-    this.factory = contractFactory;
+    factoryAddress = await factory.getAddress();
+    token1Address = await token1.getAddress();
+    token2Address = await token2.getAddress();
 
-    //not needed to test factory
-    this.fhevm = await createInstance();
   });
 
   it("should create Pair", async function () {
-    await expect(this.factory.createPair(this.Token0Address, this.Token0Address)).to.be.revertedWith(
+    await expect(factory.createPair(token1Address, token1Address)).to.be.revertedWith(
       "CyfherSwap: IDENTICAL_ADDRESSES",
     );
-    await expect(this.factory.createPair(ethers.ZeroAddress, this.Token0Address)).to.be.revertedWith(
+    await expect(factory.createPair(ethers.ZeroAddress, token1Address)).to.be.revertedWith(
       "CyfherSwap: ZERO_ADDRESS",
     );
-    const pair = await this.factory.createPair(this.Token0Address, this.Token1Address);
-    const pairs = await this.factory.allPairsLength();
+    const pair = await factory.createPair(token1Address, token2Address);
+    const pairs = await factory.allPairsLength();
     expect(pairs).to.equal(1);
   });
 
   it("should not create existing Pair", async function () {
-    const pairAddess = await this.factory.createPair(this.Token0Address, this.Token1Address);
-    await expect(this.factory.createPair(this.Token0Address, this.Token1Address)).to.be.revertedWith(
+    await factory.createPair(token1Address, token2Address);
+    await expect(factory.createPair(token1Address, token2Address)).to.be.revertedWith(
       "CyfherSwap: PAIR_EXISTS",
     );
   });
 
-  //   it("Should emit PairCreated event with the correct values", async function () {
-  //     const tx = await this.factory.createPair(this.Token0Address, this.Token1Address);
+  it("Should emit PairCreated event with the correct values", async function () {
+    const tx = await factory.createPair(token1Address, token2Address);
 
-  //     const receipt = await tx.wait();
-  //     const pairAddress = receipt.logs[0].address;
-  //     // Check event emission
-  //     await expect(tx)
-  //         .to.emit(this.factory, "PairCreated")
-  //         .withArgs(this.Token0Address, this.Token1Address, pairAddress, 1);
-  // });
+    const receipt = await tx.wait();
+    if (receipt != null) {
+      const pairAddress = receipt.logs[0].address;
+      // Check event emission
+      await expect(tx)
+        .to.emit(factory, "PairCreated")
+        .withArgs(token1Address, token2Address, pairAddress, 1);
+    }
+  });
 
   it("setFeeTo", async function () {
-    await expect(this.factory.connect(this.signers.bob).setFeeTo(this.signers.alice)).to.be.revertedWith(
+    await expect(factory.connect(signer2).setFeeTo(signer1)).to.be.revertedWith(
       "CyfherSwap: FORBIDDEN",
     );
-    await this.factory.setFeeTo(this.signers.bob);
-    expect(await this.factory.feeTo()).to.eq(this.signers.bob);
+    await factory.setFeeTo(signer2);
+    expect(await factory.feeTo()).to.eq(signer2);
   });
 
   it("setFeeToSetter", async function () {
-    await expect(this.factory.connect(this.signers.bob).setFeeToSetter(this.signers.alice)).to.be.revertedWith(
+    await expect(factory.connect(signer2).setFeeToSetter(signer1)).to.be.revertedWith(
       "CyfherSwap: FORBIDDEN",
     );
-    await this.factory.setFeeToSetter(this.signers.bob);
-    expect(await this.factory.feeToSetter()).to.eq(this.signers.bob);
-    await expect(this.factory.setFeeToSetter(this.signers.eve)).to.be.revertedWith("CyfherSwap: FORBIDDEN");
+    await factory.setFeeToSetter(signer2);
+    expect(await factory.feeToSetter()).to.eq(signer2);
+    await expect(factory.setFeeToSetter(signer3)).to.be.revertedWith("CyfherSwap: FORBIDDEN");
   });
 });

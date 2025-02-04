@@ -153,6 +153,20 @@ contract PFHERC20 is Ownable2Step, Permissioned {
         euint32 spent = _spendAllowance(from, msg.sender, FHE.asEuint32(value));
         return _transferImpl(from, to, spent);
     }
+    function unsafe_transferFrom(
+        address from,
+        address to,
+        euint32 value,
+        Permission memory permission
+    )
+        external
+        virtual
+        onlyBetweenPermitted(permission, from, to)
+        returns (euint32)
+    {
+        euint32 spent = _spendAllowance(from, msg.sender, value);
+        return _transferImpl(from, to, spent);
+    }
 
     function _transferFrom(
         address from,

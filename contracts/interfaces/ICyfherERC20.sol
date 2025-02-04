@@ -36,4 +36,11 @@ interface ICyfherERC20 {
     ) external returns (euint32);
     function mint(address to, inEuint32 calldata value) external;
     function burn(address from, inEuint32 memory encryptedAmount) external;
+    function unsafeBalanceOf(address account) external view returns (euint32);
+    function unsafe_transferFrom(
+        address from,
+        address to,
+        euint32 value,
+        Permission memory permission
+    ) external virtual returns (euint32);
 }

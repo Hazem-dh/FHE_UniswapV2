@@ -15,7 +15,8 @@ contract CyfherPair is ICyfherPair, CyfherERC20 {
     //using UQ112x112 for uint224;
 
     //uint public constant MINIMUM_LIQUIDITY = 10 ** 3;
-    euint32 public override MINIMUM_LIQUIDITY;
+    euint32 public MINIMUM_LIQUIDITY = FHE.asEuint32(1000000);
+
     //bytes4 private constant SELECTOR = bytes4(keccak256(bytes("transfer(address,uint256)")));
 
     address public factory;
@@ -89,12 +90,12 @@ contract CyfherPair is ICyfherPair, CyfherERC20 {
         blockTimestampLast = blockTimestamp;
     }
 
-    /*  // this low-level function should be called from a contract which performs important safety checks
+    // this low-level function should be called from a contract which performs important safety checks
     function mint(address to) external lock returns (euint32 liquidity) {
         (euint32 _reserve0, euint32 _reserve1, ) = getReserves(); // gas savings
         // make a get balance unsafe function until i implement eip 1272
-        euint32 balance0 = ICyfherERC20(token0).balanceOf(address(this));
-        euint32 balance1 = ICyfherERC20(token1).balanceOf(address(this));
+        euint32 balance0 = ICyfherERC20(token0).unsafeBalanceOf(address(this));
+        euint32 balance1 = ICyfherERC20(token1).unsafeBalanceOf(address(this));
         euint32 amount0 = FHE.sub(balance0, _reserve0);
         euint32 amount1 = FHE.sub(balance1, _reserve1);
         // bool feeOn = _mintFee(_reserve0, _reserve1);
@@ -110,7 +111,6 @@ contract CyfherPair is ICyfherPair, CyfherERC20 {
         //     liquidity = Math.min((amount0 * _totalSupply) / _reserve0, (amount1 * _totalSupply) / _reserve1);
         // }
         // require(liquidity > 0, "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED");
-        MINIMUM_LIQUIDITY = FHE.asEuint32(1);
 
         ebool totalSupplyEq0 = FHE.eq(_totalSupply, FHE.asEuint32(0));
 
@@ -138,5 +138,5 @@ contract CyfherPair is ICyfherPair, CyfherERC20 {
         _update(balance0, balance1, _reserve0, _reserve1);
         // if (feeOn) kLast = uint256(reserve0) * reserve1; // reserve0 and reserve1 are up-to-date
         // emit Mint(msg.sender, amount0, amount1);
-    } */
+    }
 }
