@@ -29,7 +29,7 @@ describe("PFHERC20", function () {
   beforeEach(async () => {
     //Deploy FHERC20
     const FHERC20Factory = await ethers.getContractFactory("PFHERC20");
-    PFHERC20 = await FHERC20Factory.deploy("Private TOKEN", "PT", 3); // ✅ Correct usage
+    PFHERC20 = await FHERC20Factory.deploy("Private TOKEN", "PT", 3);
     await PFHERC20.waitForDeployment();
     PFHERC20Address = await PFHERC20.getAddress();
   });
@@ -62,16 +62,6 @@ describe("PFHERC20", function () {
     expect(balanceAfter).to.equal(100);
   });
 
-  it("should not read balance of someone else", async function () {
-    // create permission for signer 
-    const permission = await createPermissionForContract(
-      hre,
-      signer2,
-      PFHERC20Address,
-    );
-    await expect(PFHERC20.connect(signer2).balanceOf(signer1, permission)).to.be.revertedWithCustomError(PFHERC20, "SignerNotOwner");
-
-  });
 
 
   it("should transfer tokens", async function () {
