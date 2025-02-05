@@ -7,8 +7,4 @@ import "@fhenixprotocol/contracts/FHE.sol";
 
 contract CyfherERC20 is PFHERC20 {
     constructor() PFHERC20("CyfherERC20", "Cyf", 3) {}
-
-    function unsafeBalanceOf(address account) public view returns (euint32) {
-        return _balances[account];
-    }
 }

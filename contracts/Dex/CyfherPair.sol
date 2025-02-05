@@ -11,11 +11,13 @@ import "@fhenixprotocol/contracts/FHE.sol";
 
 import {CyfherERC20} from "./CyfherERC20.sol";
 
-contract CyfherPair is ICyfherPair, CyfherERC20 {
+import "@fhenixprotocol/contracts/utils/debug/Console.sol";
+
+contract CyfherPair is CyfherERC20 {
     //using UQ112x112 for uint224;
 
     //uint public constant MINIMUM_LIQUIDITY = 10 ** 3;
-    euint32 public MINIMUM_LIQUIDITY = FHE.asEuint32(1000000);
+    euint32 public MINIMUM_LIQUIDITY = FHE.asEuint32(1);
 
     //bytes4 private constant SELECTOR = bytes4(keccak256(bytes("transfer(address,uint256)")));
 
@@ -23,8 +25,8 @@ contract CyfherPair is ICyfherPair, CyfherERC20 {
     address public token0;
     address public token1;
 
-    euint32 private reserve0; // uses single storage slot, accessible via getReserves
-    euint32 private reserve1; // uses single storage slot, accessible via getReserves
+    euint32 private reserve0 = FHE.asEuint32(0); // uses single storage slot, accessible via getReserves
+    euint32 private reserve1 = FHE.asEuint32(0); // uses single storage slot, accessible via getReserves
     uint32 private blockTimestampLast; // uses single storage slot, accessible via getReserves
 
     //euint32 public price0CumulativeLast;
@@ -94,49 +96,36 @@ contract CyfherPair is ICyfherPair, CyfherERC20 {
     function mint(address to) external lock returns (euint32 liquidity) {
         (euint32 _reserve0, euint32 _reserve1, ) = getReserves(); // gas savings
         // make a get balance unsafe function until i implement eip 1272
-        euint32 balance0 = ICyfherERC20(token0).unsafeBalanceOf(address(this));
+
+        euint32 balance0 = CyfherERC20(token0).unsafeBalanceOf(address(this));
         euint32 balance1 = ICyfherERC20(token1).unsafeBalanceOf(address(this));
         euint32 amount0 = FHE.sub(balance0, _reserve0);
         euint32 amount1 = FHE.sub(balance1, _reserve1);
         // bool feeOn = _mintFee(_reserve0, _reserve1);
         euint32 totalSupply = _totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
-
-        //if (_totalSupply == 0) {
-        //liquidity = Math.sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
-        //_unsafeMint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
-        //liquidity = FHE.sub(FHE.mul(amount0, amount1), 1000);
-        //_mint(address(0), MINIMUM_LIQUIDITY);
-        // }
-        //else {
-        //     liquidity = Math.min((amount0 * _totalSupply) / _reserve0, (amount1 * _totalSupply) / _reserve1);
-        // }
-        // require(liquidity > 0, "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED");
-
-        ebool totalSupplyEq0 = FHE.eq(_totalSupply, FHE.asEuint32(0));
-
-        euint32 liquidityIfToTalSupply0 = FHE.sub(
-            FHE.mul(amount0, amount1),
-            MINIMUM_LIQUIDITY
-        ); // To rework
-        euint32 toSupplyToDeadAddress = FHE.select(
-            totalSupplyEq0,
-            MINIMUM_LIQUIDITY,
+        ebool totalSupplyIsZeroEncrypted = FHE.eq(
+            totalSupply,
             FHE.asEuint32(0)
-        ); // To rework
-        _mint(address(0), toSupplyToDeadAddress);
-
-        euint32 liquidityIfTotalSupplyNot0 = FHE.mul(amount0, amount1); // DIV IS MISSING - to rework
-
-        euint32 toSupplyToLiquidityProvider = FHE.select(
-            totalSupplyEq0,
-            liquidityIfToTalSupply0,
-            liquidityIfTotalSupplyNot0
         );
-
-        _mint(to, toSupplyToLiquidityProvider);
-
+        // decrypting if totalsupply is 0 or not  does not reveal any sensetive information ,doing if else statement will save gas
+        bool totalSupplyIsZero = FHE.decrypt(totalSupplyIsZeroEncrypted);
+        if (totalSupplyIsZero) {
+            _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
+            // we should use square root here
+            // Edge case if amount 0 and amount 1 are 0 when adding liquidity this will revert or underflow
+            liquidity = (amount0 * amount1) - MINIMUM_LIQUIDITY;
+            //Console.log(FHE.decrypt(liquidity));
+        } else {
+            liquidity = FHE.min(
+                (amount0 * _totalSupply) / _reserve0,
+                (amount1 * _totalSupply) / _reserve1
+            );
+        }
+        FHE.req(liquidity.gt(FHE.asEuint32(0)));
+        _mint(to, liquidity);
         _update(balance0, balance1, _reserve0, _reserve1);
-        // if (feeOn) kLast = uint256(reserve0) * reserve1; // reserve0 and reserve1 are up-to-date
-        // emit Mint(msg.sender, amount0, amount1);
     }
+
+    // if (feeOn) kLast = uint256(reserve0) * reserve1; // reserve0 and reserve1 are up-to-date
+    // emit Mint(msg.sender, amount0, amount1);
 }

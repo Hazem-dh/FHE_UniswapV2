@@ -7,6 +7,7 @@ import {ICyfherRouter} from "../interfaces/ICyfherRouter.sol";
 import {ICyfherPair} from "../interfaces/ICyfherPair.sol";
 import {UniswapV2Library} from "../libraries/UniswapV2Library.sol";
 import {ICyfherERC20} from "../interfaces/ICyfherERC20.sol";
+import "@fhenixprotocol/contracts/utils/debug/Console.sol";
 
 import {Permissioned, Permission} from "@fhenixprotocol/contracts/access/Permissioned.sol";
 import "@fhenixprotocol/contracts/FHE.sol";
@@ -30,14 +31,14 @@ contract CyfherRouter {
         address tokenB,
         inEuint32 calldata encryptedAmountADesired,
         inEuint32 calldata encryptedAmountBDesired,
-        Permission memory permission
+        Permission memory permissionA,
+        Permission memory permissionB
     )
         external
-        virtual
-        returns (
+    /*         returns (
             //returns (euint32 amountA, euint32 amountB, euint32 liquidity)
-            euint32 liquidity
-        )
+            string memory
+        ) */
     {
         euint32 amountADesired = FHE.asEuint32(encryptedAmountADesired);
         euint32 amountBDesired = FHE.asEuint32(encryptedAmountBDesired);
@@ -45,8 +46,13 @@ contract CyfherRouter {
         if (ICyfherFactory(factory).getPair(tokenA, tokenB) == address(0)) {
             ICyfherFactory(factory).createPair(tokenA, tokenB);
         }
-        //(uint256 reserveA, uint256 reserveB) = UniswapV2Library.getReserves(factory, tokenA, tokenB);
+        (euint32 reserveA, euint32 reserveB) = UniswapV2Library.getReserves(
+            factory,
+            tokenA,
+            tokenB
+        );
 
+        //TODO :  add checking if desired amounts are not ZERO or implement the logic below
         //if (reserveA == 0 && reserveB == 0) {
         // For Now we will do only the first add liquidity and mint
         // (amountA, amountB) = (amountADesired, amountBDesired);
@@ -63,20 +69,21 @@ contract CyfherRouter {
         // }
         //}
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
-
+        Console.log("pair :", pair);
         ICyfherERC20(tokenA).unsafe_transferFrom(
             msg.sender,
             pair,
             amountADesired,
-            permission
+            permissionA
         );
         ICyfherERC20(tokenB).unsafe_transferFrom(
             msg.sender,
             pair,
             amountBDesired,
-            permission
+            permissionB
         );
 
-        liquidity = ICyfherPair(pair).mint(msg.sender);
+        //   return pair;
+        euint32 liquidity = ICyfherPair(pair).mint(msg.sender);
     }
 }

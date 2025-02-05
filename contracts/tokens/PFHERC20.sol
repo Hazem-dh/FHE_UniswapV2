@@ -147,32 +147,12 @@ contract PFHERC20 is Ownable2Step, Permissioned {
     )
         public
         virtual
-        onlyBetweenPermitted(permission, from, to)
+        onlyBetweenPermitted(permission, from, msg.sender)
         returns (euint32)
     {
         euint32 spent = _spendAllowance(from, msg.sender, FHE.asEuint32(value));
         return _transferImpl(from, to, spent);
     }
-    function unsafe_transferFrom(
-        address from,
-        address to,
-        euint32 value,
-        Permission memory permission
-    )
-        external
-        virtual
-        onlyBetweenPermitted(permission, from, to)
-        returns (euint32)
-    {
-        euint32 spent = _spendAllowance(from, msg.sender, value);
-        return _transferImpl(from, to, spent);
-    }
-
-    function _transferFrom(
-        address from,
-        address to,
-        euint32 value
-    ) internal virtual returns (euint32) {}
 
     function mint(address to, inEuint32 calldata value) public onlyOwner {
         if (to == address(0)) {
@@ -182,7 +162,7 @@ contract PFHERC20 is Ownable2Step, Permissioned {
         _mint(to, encryptedAmount);
     }
 
-    function _mint(address to, euint32 value) public onlyOwner {
+    function _mint(address to, euint32 value) public {
         _balances[to] = _balances[to] + value;
         _totalSupply = _totalSupply + value;
     }
@@ -231,5 +211,25 @@ contract PFHERC20 is Ownable2Step, Permissioned {
         _balances[from] = _balances[from] - amountToSend;
         // TODO : it has no sense to return an encrypted amount
         return amountToSend;
+    }
+
+    function unsafe_transferFrom(
+        address from,
+        address to,
+        euint32 toTransfer,
+        Permission memory permission
+    )
+        external
+        virtual
+        onlyBetweenPermitted(permission, from, msg.sender)
+        returns (euint32)
+    {
+        // euint32 toTransfer = FHE.asEuint32(value);
+        euint32 spent = _spendAllowance(from, msg.sender, toTransfer);
+        return _transferImpl(from, to, spent);
+    }
+
+    function unsafeBalanceOf(address account) public view returns (euint32) {
+        return _balances[account];
     }
 }
