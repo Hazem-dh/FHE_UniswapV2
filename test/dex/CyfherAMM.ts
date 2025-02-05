@@ -1,19 +1,18 @@
 import { expect } from "chai";
-import hre, { ethers } from "hardhat";
+import hre, { ethers, fhenixjs } from "hardhat";
 import { PFHERC20, CyfherFactory, CyfherRouter } from "../../typechain-types";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import {
   getTokensFromFaucet,
+  createPermissionForContract,
 } from "../../utils/instance";
 
 
-
-describe("CyfherFactory", function () {
+describe("CyfherAMM", function () {
 
   let signer1: SignerWithAddress;
   let signer2: SignerWithAddress;
   let signer3: SignerWithAddress;
-
 
   let factory: CyfherFactory;
   let factoryAddress: string;
@@ -31,7 +30,6 @@ describe("CyfherFactory", function () {
     signer2 = (await ethers.getSigners())[1];
     signer3 = (await ethers.getSigners())[2];
 
-
     await getTokensFromFaucet(hre, signer1.address);
     await getTokensFromFaucet(hre, signer2.address);
     await getTokensFromFaucet(hre, signer3.address);
@@ -39,27 +37,80 @@ describe("CyfherFactory", function () {
   });
 
   beforeEach(async () => {
-    //Deploy FHERC20
+    //Contracts factories
     const FHERC20Factory = await ethers.getContractFactory("PFHERC20");
     const CyfherFactory = await ethers.getContractFactory("CyfherFactory");
     const routerFactory = await ethers.getContractFactory("CyfherRouter");
-
+    // deploy factory
     factory = await CyfherFactory.deploy(signer1);
     await factory.waitForDeployment();
-    router = await routerFactory.deploy(signer1);
+    factoryAddress = await factory.getAddress();
+
+    // deploy router
+    router = await routerFactory.deploy(factoryAddress);
     await router.waitForDeployment()
+
+    // deploy tokens
     token1 = await FHERC20Factory.deploy("token1", "TKN1", 3);
     await token1.waitForDeployment();
     token2 = await FHERC20Factory.deploy("token2", "TKN2", 3);
     await token2.waitForDeployment();
 
-    factoryAddress = await factory.getAddress();
     token1Address = await token1.getAddress();
     token2Address = await token2.getAddress();
-    token2Address = await router.getAddress();
+    routerAddress = await router.getAddress();
 
 
   });
+
+
+  it("Liquidity providing ", async function () {
+    // mint both tokens for signer1
+
+    let encrypted_mint = await fhenixjs.encrypt_uint32(1000)
+    const tx1 = await token1.connect(signer1).mint(signer1, encrypted_mint);
+    await tx1.wait();
+    const tx2 = await token2.connect(signer1).mint(signer1, encrypted_mint);
+    await tx2.wait();
+    // make allowance for the router 
+    const permission1 = await createPermissionForContract(
+      hre,
+      signer1,
+      token1Address,
+    );
+    const permission2 = await createPermissionForContract(
+      hre,
+      signer1,
+      token2Address,
+    );
+    const tx3 = await token1.connect(signer1).approve(routerAddress, encrypted_mint, permission1);
+    await tx3.wait();
+    const tx4 = await token2.connect(signer1).approve(routerAddress, encrypted_mint, permission2);
+    await tx4.wait();
+    // add liquidity 
+    const permissionA = await createPermissionForContract(
+      hre,
+      signer1,
+      token1Address,
+    );
+    const permissionB = await createPermissionForContract(
+      hre,
+      signer1,
+      token2Address,
+    );
+    let encrypted_liquidity1 = await fhenixjs.encrypt_uint32(500)
+    let encrypted_liquidity2 = await fhenixjs.encrypt_uint32(500)
+
+    console.log(token1Address)
+    console.log(token2Address)
+
+    const tx5 = await router.connect(signer1).addLiquidity(token1Address, token2Address, encrypted_liquidity1, encrypted_liquidity2, permissionA, permissionB);
+    const receipt = await tx5.wait();
+
+
+
+    expect(1).to.equal(1);
+  })
 })
 /*
   describe("Deployment testing", function () {
