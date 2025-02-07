@@ -34,21 +34,21 @@ const deployCounter: DeployFunction = async function (
     }
   }
 
-  /*   const pEUR = await deploy("PFHERC20", {
-      from: deployer,
-      // Contract constructor arguments
-      args: ["PrivateEUR", "pEUR", 3],
-      log: true,
-      autoMine: true,
-    });
-    console.log("pEUR deployed with address : ", pEUR.address)
-    const pUSD = await deploy("PFHERC20", {
-      from: deployer,
-      args: ["PrivateUSD", "pUSD", 3],
-      log: true,
-      autoMine: true,
-    });
-    console.log("pUSD deployed with address : ", pUSD.address) 
+  const pEUR = await deploy("PFHERC20", {
+    from: deployer,
+    // Contract constructor arguments
+    args: ["PrivateEUR", "pEUR", 3],
+    log: true,
+    autoMine: true,
+  });
+  console.log("pEUR deployed with address : ", pEUR.address)
+  const pUSD = await deploy("PFHERC20", {
+    from: deployer,
+    args: ["PrivateUSD", "pUSD", 3],
+    log: true,
+    autoMine: true,
+  });
+  console.log("pUSD deployed with address : ", pUSD.address)
 
   const pGPB = await deploy("PFHERC20", {
     from: deployer,
@@ -56,7 +56,7 @@ const deployCounter: DeployFunction = async function (
     log: true,
     autoMine: true,
   });
-  console.log("pGPB deployed with address : ", pGPB.address)*/
+  console.log("pGPB deployed with address : ", pGPB.address)
   const Distributer = await deploy("TokenDistributor", {
     from: deployer,
     args: [],
