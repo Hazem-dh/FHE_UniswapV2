@@ -9,13 +9,13 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract TokenDistributor is Ownable {
     constructor() Ownable(msg.sender) {}
 
-    euint32 amount = FHE.asEuint32(100);
-
     function acceptOwnership(address tokenAddress) external onlyOwner {
         PFHERC20(tokenAddress).acceptOwnership();
     }
 
     function claim(address tokenAddress) external {
-        PFHERC20(tokenAddress)._mint(msg.sender, amount);
+        // mint 100 tokens
+
+        PFHERC20(tokenAddress)._mint(msg.sender, FHE.asEuint32(100000));
     }
 }

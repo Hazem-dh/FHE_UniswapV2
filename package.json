@@ -8,6 +8,7 @@
     "test:localfhenix": "REPORT_GAS=true hardhat test --network localfhenix",
     "clean": "rimraf ./artifacts ./cache ./coverage ./types ./coverage.json ./deployments/localfhenix",
     "compile": "hardhat compile",
+    "deploy": "hardhat deploy --network nitrogen",
     "--------------": "",
     " --- fhenix ---": "",
     "  --------------": "",
