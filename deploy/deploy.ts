@@ -34,19 +34,41 @@ const deployCounter: DeployFunction = async function (
     }
   }
 
-  await deploy("Counter", {
+  const pEUR = await deploy("PFHERC20", {
     from: deployer,
     // Contract constructor arguments
-    args: [],
+    args: ["PrivateEUR", "pEUR", 3],
     log: true,
-    // autoMine: can be passed to the deploy function to make the deployment process faster on local networks by
-    // automatically mining the contract deployment transaction. There is no effect on live networks.
     autoMine: true,
   });
+  console.log("pEUR deployed with address : ", pEUR.address)
+  const pUSD = await deploy("PFHERC20", {
+    from: deployer,
+    args: ["PrivateUSD", "pUSD", 3],
+    log: true,
+    autoMine: true,
+  });
+  console.log("pUSD deployed with address : ", pUSD.address)
+
+  const pGPB = await deploy("PFHERC20", {
+    from: deployer,
+    args: ["PrivateGPB", "pGPB", 3],
+    log: true,
+    autoMine: true,
+  });
+  console.log("pGPB deployed with address : ", pGPB.address)
+  const Distributer = await deploy("TokenDistributor", {
+    from: deployer,
+    args: [],
+    log: true,
+    autoMine: true,
+  });
+  console.log("Distributer deployed with address : ", Distributer.address)
+
 };
 
 export default deployCounter;
 
 // Tags are useful if you have multiple deploy files and only want to run one of them.
 // e.g. yarn deploy --tags Counter
-deployCounter.tags = ["Counter"];
+deployCounter.tags = ["Deployer"];

@@ -1,6 +1,5 @@
 import * as dotenv from "dotenv";
 dotenv.config();
-import { HardhatUserConfig } from "hardhat/config";
 import "@typechain/hardhat";
 import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-chai-matchers";
@@ -27,7 +26,7 @@ const deployerPrivateKey =
 const etherscanApiKey =
   process.env.ETHERSCAN_API_KEY || "DNXJA8RX2Q3VZ4URQIWP7Z68CJXQZSC6AW";
 
-const config= {
+const config = {
   solidity: {
     version: "0.8.24",
     settings: {
