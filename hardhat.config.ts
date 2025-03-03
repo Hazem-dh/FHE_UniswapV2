@@ -48,11 +48,7 @@ const config= {
   networks: {
     // View the networks that are pre-configured.
     // If the network you are looking for is not here you can add new network settings
-    helium: {
-      url: "https://api.testnet.fhenix.zone:7747",
-      chainId: 42069,
-      accounts: [deployerPrivateKey],
-    },
+
     nitrogen: {
       url: "https://api.nitrogen.fhenix.zone",
       chainId: 8008148,
@@ -60,7 +56,7 @@ const config= {
     },
     localhost: {
       chainId: 31337,
-    }
+    },  
   },
   // configuration for harhdat-verify plugin
   etherscan: {

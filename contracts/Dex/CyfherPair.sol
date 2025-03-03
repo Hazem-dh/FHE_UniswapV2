@@ -67,12 +67,8 @@ contract CyfherPair is CyfherERC20 {
     }
 
     // update reserves and, on the first call per block, price accumulators
-    function _update(
-        euint32 balance0,
-        euint32 balance1,
-        euint32 _reserve0,
-        euint32 _reserve1
-    ) private {
+    function _update(euint32 balance0, euint32 balance1) private {
+        //euint32 _reserve0,euint32 _reserve1
         // require(balance0 <= type(uint112).max && balance1 <= type(uint112).max, "UniswapV2: OVERFLOW");
         uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);
         // unchecked {
@@ -123,7 +119,7 @@ contract CyfherPair is CyfherERC20 {
         }
         FHE.req(liquidity.gt(FHE.asEuint32(0)));
         _mint(to, liquidity);
-        _update(balance0, balance1, _reserve0, _reserve1);
+        _update(balance0, balance1);
     }
 
     // if (feeOn) kLast = uint256(reserve0) * reserve1; // reserve0 and reserve1 are up-to-date

@@ -7,8 +7,10 @@ import {
   createPermissionForContract,
 } from "../../utils/instance";
 
+const sleep = (ms: number): Promise<void> => 
+  new Promise(resolve => setTimeout(resolve, ms));
 
-describe("CyfherAMM", function () {
+describe.only("CyfherAMM", function () {
 
   let signer1: SignerWithAddress;
   let signer2: SignerWithAddress;
@@ -33,6 +35,7 @@ describe("CyfherAMM", function () {
     await getTokensFromFaucet(hre, signer1.address);
     await getTokensFromFaucet(hre, signer2.address);
     await getTokensFromFaucet(hre, signer3.address);
+    
 
   });
 
@@ -60,13 +63,6 @@ describe("CyfherAMM", function () {
     token2Address = await token2.getAddress();
     routerAddress = await router.getAddress();
 
-
-  });
-
-
-  it("Liquidity providing ", async function () {
-    // mint both tokens for signer1
-
     let encrypted_mint = await fhenixjs.encrypt_uint32(1000)
     const tx1 = await token1.connect(signer1).mint(signer1, encrypted_mint);
     await tx1.wait();
@@ -88,6 +84,16 @@ describe("CyfherAMM", function () {
     const tx4 = await token2.connect(signer1).approve(routerAddress, encrypted_mint, permission2);
     await tx4.wait();
     // add liquidity 
+
+
+  });
+
+
+  it("Liquidity providing ", async function () {
+    const provider = ethers.provider;
+
+    // mint both tokens for signer1
+    console.log(provider)
     const permissionA = await createPermissionForContract(
       hre,
       signer1,
@@ -98,20 +104,20 @@ describe("CyfherAMM", function () {
       signer1,
       token2Address,
     );
+
     let encrypted_liquidity1 = await fhenixjs.encrypt_uint32(500)
     let encrypted_liquidity2 = await fhenixjs.encrypt_uint32(500)
 
     console.log(token1Address)
     console.log(token2Address)
-
     const tx5 = await router.connect(signer1).addLiquidity(token1Address, token2Address, encrypted_liquidity1, encrypted_liquidity2, permissionA, permissionB);
     const receipt = await tx5.wait();
-
-
 
     expect(1).to.equal(1);
   })
 })
+
+
 /*
   describe("Deployment testing", function () {
     it("should mint erc20 token to user", async function () {
