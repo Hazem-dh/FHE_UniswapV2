@@ -24,11 +24,11 @@ contract CyfherFactory is ICyfherFactory {
         address tokenA,
         address tokenB
     ) external returns (address pair) {
-        require(tokenA != tokenB, "CyfherSwap: IDENTICAL_ADDRESSES");
+        require(tokenA != tokenB, "CyfherSwap:IDENTICAL_ADDRESSES");
         (address token0, address token1) = tokenA < tokenB
             ? (tokenA, tokenB)
             : (tokenB, tokenA);
-        require(token0 != address(0), "CyfherSwap: ZERO_ADDRESS");
+        require(token0 != address(0), "CyfherSwap:ZERO_ADDRESS");
         require(
             getPair[token0][token1] == address(0),
             "CyfherSwap: PAIR_EXISTS"
@@ -42,7 +42,7 @@ contract CyfherFactory is ICyfherFactory {
         getPair[token0][token1] = pair;
         getPair[token1][token0] = pair; // populate mapping in the reverse direction
         allPairs.push(pair);
-        //emit PairCreated(token0, token1, pair, allPairs.length);
+        emit PairCreated(token0, token1, pair, allPairs.length);
     }
 
     function setFeeTo(address _feeTo) external {

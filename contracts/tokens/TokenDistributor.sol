@@ -14,8 +14,10 @@ contract TokenDistributor is Ownable {
     }
 
     function claim(address tokenAddress) external {
-        // mint 100 tokens
-
-        PFHERC20(tokenAddress)._mint(msg.sender, FHE.asEuint32(100000));
+        // mint 1000 tokens , decimals = 2
+        PFHERC20(tokenAddress).mint_distributor(
+            msg.sender,
+            FHE.asEuint32(100000)
+        );
     }
 }

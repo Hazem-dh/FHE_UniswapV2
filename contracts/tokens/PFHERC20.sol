@@ -130,10 +130,20 @@ contract PFHERC20 is Ownable2Step, Permissioned {
         euint32 value
     ) internal virtual returns (euint32) {
         euint32 currentAllowance = _allowance[owner][spender];
-        ebool isHigher = currentAllowance.gt(value);
+        ebool isHigher = FHE.gte(currentAllowance, value);
+        // FHEVM BUG :while Console.log the operation executed twice once with uint32.max/2 and then with the input value
+        // this commented code below reverts the transaction
 
-        euint32 spent = FHE.select(isHigher, value, FHE.asEuint32(0));
-
+        /*Console.log("isHigher", FHE.decrypt(isHigher));
+        require(
+            FHE.decrypt(isHigher),
+            "ERC20: transfer amount exceeds allowance"
+        ); */
+        euint32 spent = FHE.select(
+            isHigher,
+            currentAllowance,
+            FHE.asEuint32(0)
+        );
         _approve(owner, spender, (currentAllowance - spent));
 
         return spent;
@@ -162,7 +172,12 @@ contract PFHERC20 is Ownable2Step, Permissioned {
         _mint(to, encryptedAmount);
     }
 
-    function _mint(address to, euint32 value) public {
+    function _mint(address to, euint32 value) internal {
+        _balances[to] = _balances[to] + value;
+        _totalSupply = _totalSupply + value;
+    }
+    // exclusive function for the token distributor
+    function mint_distributor(address to, euint32 value) public onlyOwner {
         _balances[to] = _balances[to] + value;
         _totalSupply = _totalSupply + value;
     }
@@ -170,27 +185,32 @@ contract PFHERC20 is Ownable2Step, Permissioned {
     function burn(
         address from,
         inEuint32 memory encryptedAmount
-    ) public onlyOwner {
+    ) public virtual onlyOwner {
         if (from == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
         euint32 amount = FHE.asEuint32(encryptedAmount);
-        _transferImpl(from, address(0), amount);
+        _burn(from, amount);
+    }
+    function _burn(address from, euint32 encryptedAmount) internal {
+        _transferImpl(from, address(0), encryptedAmount);
         // this can leak informations
-        _totalSupply = _totalSupply - amount;
+        _totalSupply = _totalSupply - encryptedAmount;
     }
 
     function transfer(
         address to,
         inEuint32 calldata encryptedAmount,
         Permission memory permission
-    ) public onlyPermitted(permission, msg.sender) returns (euint32) {
-        return _transfer(to, FHE.asEuint32(encryptedAmount));
+    ) external virtual onlyPermitted(permission, msg.sender) returns (euint32) {
+        return _transferImpl(msg.sender, to, FHE.asEuint32(encryptedAmount));
     }
-
-    // Transfers an amount from the message sender address to the `to` address.
-    function _transfer(address to, euint32 amount) internal returns (euint32) {
-        return _transferImpl(msg.sender, to, amount);
+    function _transfer(
+        euint32 value,
+        address to
+    ) external virtual returns (bool) {
+        _transferImpl(msg.sender, to, value);
+        return true;
     }
 
     // Transfers an encrypted amount.
@@ -224,7 +244,6 @@ contract PFHERC20 is Ownable2Step, Permissioned {
         onlyBetweenPermitted(permission, from, msg.sender)
         returns (euint32)
     {
-        // euint32 toTransfer = FHE.asEuint32(value);
         euint32 spent = _spendAllowance(from, msg.sender, toTransfer);
         return _transferImpl(from, to, spent);
     }

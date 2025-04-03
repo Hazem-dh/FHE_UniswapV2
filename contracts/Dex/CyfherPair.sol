@@ -4,34 +4,21 @@ pragma solidity ^0.8.24;
 
 import {ICyfherFactory} from "../interfaces/ICyfherFactory.sol";
 import {ICyfherPair} from "../interfaces/ICyfherPair.sol";
-import {ICyfherERC20} from "../interfaces/ICyfherERC20.sol";
-
+import {IPFHERC20} from "../interfaces/IPFHERC20.sol";
+import {PFHERC20} from "../tokens/PFHERC20.sol";
+import {CyfherSwapLibrary} from "../libraries/CyfherSwapLibrary.sol";
 import {Permissioned, Permission} from "@fhenixprotocol/contracts/access/Permissioned.sol";
 import "@fhenixprotocol/contracts/FHE.sol";
 
-import {CyfherERC20} from "./CyfherERC20.sol";
-
-import "@fhenixprotocol/contracts/utils/debug/Console.sol";
-
-contract CyfherPair is CyfherERC20 {
-    //using UQ112x112 for uint224;
-
-    //uint public constant MINIMUM_LIQUIDITY = 10 ** 3;
+contract CyfherPair is PFHERC20 {
     euint32 public MINIMUM_LIQUIDITY = FHE.asEuint32(1);
-
-    //bytes4 private constant SELECTOR = bytes4(keccak256(bytes("transfer(address,uint256)")));
 
     address public factory;
     address public token0;
     address public token1;
-
-    euint32 private reserve0 = FHE.asEuint32(0); // uses single storage slot, accessible via getReserves
-    euint32 private reserve1 = FHE.asEuint32(0); // uses single storage slot, accessible via getReserves
-    uint32 private blockTimestampLast; // uses single storage slot, accessible via getReserves
-
-    //euint32 public price0CumulativeLast;
-    // euint32 public price1CumulativeLast;
-    // euint32 public kLast; // reserve0 * reserve1, as of immediately after the most recent liquidity event
+    euint32 private reserve0 = FHE.asEuint32(0);
+    euint32 private reserve1 = FHE.asEuint32(0);
+    uint32 private blockTimestampLast;
 
     uint private unlocked = 1;
 
@@ -42,7 +29,7 @@ contract CyfherPair is CyfherERC20 {
         unlocked = 1;
     }
 
-    constructor() {
+    constructor() PFHERC20("CyfherERC20", "Cyf", 2) {
         factory = msg.sender;
     }
 
@@ -68,21 +55,7 @@ contract CyfherPair is CyfherERC20 {
 
     // update reserves and, on the first call per block, price accumulators
     function _update(euint32 balance0, euint32 balance1) private {
-        //euint32 _reserve0,euint32 _reserve1
-        // require(balance0 <= type(uint112).max && balance1 <= type(uint112).max, "UniswapV2: OVERFLOW");
         uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);
-        // unchecked {
-        //     uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
-        //     if (timeElapsed > 0 && _reserve0 != 0 && _reserve1 != 0) {
-        //         // * never overflows, and + overflow is desired
-        //         price0CumulativeLast += uint256(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
-        //         price1CumulativeLast += uint256(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
-        //     }
-        // }
-        // reserve0 = uint112(balance0);
-        // reserve1 = uint112(balance1);
-        // blockTimestampLast = blockTimestamp;
-        // emit Sync(reserve0, reserve1);
         reserve0 = balance0;
         reserve1 = balance1;
         blockTimestampLast = blockTimestamp;
@@ -91,37 +64,124 @@ contract CyfherPair is CyfherERC20 {
     // this low-level function should be called from a contract which performs important safety checks
     function mint(address to) external lock returns (euint32 liquidity) {
         (euint32 _reserve0, euint32 _reserve1, ) = getReserves(); // gas savings
-        // make a get balance unsafe function until i implement eip 1272
-
-        euint32 balance0 = CyfherERC20(token0).unsafeBalanceOf(address(this));
-        euint32 balance1 = ICyfherERC20(token1).unsafeBalanceOf(address(this));
+        // use get balance unsafe function until eip 1272 is implemented or permissionV2 is released
+        euint32 balance0 = IPFHERC20(token0).unsafeBalanceOf(address(this));
+        euint32 balance1 = IPFHERC20(token1).unsafeBalanceOf(address(this));
         euint32 amount0 = FHE.sub(balance0, _reserve0);
         euint32 amount1 = FHE.sub(balance1, _reserve1);
-        // bool feeOn = _mintFee(_reserve0, _reserve1);
-        euint32 totalSupply = _totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         ebool totalSupplyIsZeroEncrypted = FHE.eq(
-            totalSupply,
+            _totalSupply,
             FHE.asEuint32(0)
         );
+
         // decrypting if totalsupply is 0 or not  does not reveal any sensetive information ,doing if else statement will save gas
         bool totalSupplyIsZero = FHE.decrypt(totalSupplyIsZeroEncrypted);
         if (totalSupplyIsZero) {
-            _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
-            // we should use square root here
-            // Edge case if amount 0 and amount 1 are 0 when adding liquidity this will revert or underflow
-            liquidity = (amount0 * amount1) - MINIMUM_LIQUIDITY;
-            //Console.log(FHE.decrypt(liquidity));
-        } else {
-            liquidity = FHE.min(
-                (amount0 * _totalSupply) / _reserve0,
-                (amount1 * _totalSupply) / _reserve1
+            // transferfrom function is unsafe as it does not check if the user has approved the token
+            // need to add check if the user has approved the token
+            bool isAmountZero1 = FHE.decrypt(FHE.eq(amount0, FHE.asEuint32(0)));
+            bool isAmountZero2 = FHE.decrypt(FHE.eq(amount1, FHE.asEuint32(0)));
+
+            require(
+                !isAmountZero1 && !isAmountZero2,
+                "CyfherSwap: Not enough tokens Approved"
             );
+            // this can underflow if the user has aproved tokens but has not enough balance
+            //this easily overflows
+            euint32 square = FHE.mul(amount0, amount1);
+            euint32 squareroot = CyfherSwapLibrary.Esqrt(square);
+            liquidity = FHE.sub(squareroot, MINIMUM_LIQUIDITY);
+            _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
+        } else {
+            euint32 liquidity1 = FHE.div(
+                FHE.mul(amount0, _totalSupply),
+                _reserve0
+            );
+            euint32 liquidity2 = FHE.div(
+                FHE.mul(amount1, _totalSupply),
+                _reserve1
+            );
+            liquidity = FHE.min(liquidity1, liquidity2);
         }
-        FHE.req(liquidity.gt(FHE.asEuint32(0)));
+        FHE.req(FHE.gt(liquidity, FHE.asEuint32(0)));
+
         _mint(to, liquidity);
         _update(balance0, balance1);
     }
 
-    // if (feeOn) kLast = uint256(reserve0) * reserve1; // reserve0 and reserve1 are up-to-date
-    // emit Mint(msg.sender, amount0, amount1);
+    function burn(
+        address to
+    ) external lock returns (euint32 amount0, euint32 amount1) {
+        address _token0 = token0;
+        address _token1 = token1; // gas savings
+        euint32 balance0 = IPFHERC20(_token0).unsafeBalanceOf(address(this));
+        euint32 balance1 = IPFHERC20(_token1).unsafeBalanceOf(address(this));
+        euint32 liquidity = _balances[address(this)];
+        amount0 = FHE.div(FHE.mul(liquidity, balance0), _totalSupply); // using balances ensures pro-rata
+        amount1 = FHE.div(FHE.mul(liquidity, balance1), _totalSupply); // using balances ensures pro-rata
+        _burn(address(this), liquidity);
+        IPFHERC20(address(_token0))._transfer(amount0, to);
+        IPFHERC20(address(_token1))._transfer(amount1, to);
+        balance0 = IPFHERC20(_token0).unsafeBalanceOf(address(this));
+        balance1 = IPFHERC20(_token1).unsafeBalanceOf(address(this));
+        _update(balance0, balance1);
+    }
+
+    function swap(
+        euint32 amount0Out,
+        euint32 amount1Out,
+        address to
+    ) external lock {
+        //(euint32 _reserve0, euint32 _reserve1, ) = getReserves(); // gas savings
+        euint32 balance0;
+        euint32 balance1;
+
+        // scope for _token{0,1}, avoids stack too deep errors
+        address _token0 = token0;
+        address _token1 = token1;
+        IPFHERC20(_token0)._transfer(amount0Out, to);
+        IPFHERC20(_token1)._transfer(amount1Out, to);
+        balance0 = IPFHERC20(_token0).unsafeBalanceOf(address(this));
+        balance1 = IPFHERC20(_token1).unsafeBalanceOf(address(this));
+        // POTENTIAL OVERFLOW RISK
+        /*         ebool balance0GtReserve0MinusAmount0Out = FHE.gt(
+            balance0,
+            FHE.sub(_reserve0, amount0Out)
+        );
+        ebool balance1GtReserve1MinusAmount1Out = FHE.gt(
+            balance1,
+            FHE.sub(_reserve1, amount1Out)
+        );
+        euint32 amount0In = FHE.select(
+            balance0GtReserve0MinusAmount0Out,
+            FHE.sub(balance0, FHE.sub(_reserve0, amount0Out)),
+            FHE.asEuint32(0)
+        );
+        euint32 amount1In = FHE.select(
+            balance1GtReserve1MinusAmount1Out,
+            FHE.sub(balance1, FHE.sub(_reserve1, amount1Out)),
+            FHE.asEuint32(0)
+        );
+        {
+            // scope for reserve{0,1}Adjusted, avoids stack too deep errors
+            euint32 balance0Adjusted = FHE.sub(
+                FHE.mul(balance0, FHE.asEuint32(1000)),
+                FHE.mul(amount0In, FHE.asEuint32(3))
+            );
+            euint32 balance1Adjusted = FHE.sub(
+                FHE.mul(balance1, FHE.asEuint32(1000)),
+                FHE.mul(amount1In, FHE.asEuint32(3))
+            );
+            // Here we check newK > oldK
+            // BE CAREFUL, WE SHOULD REMOVE THIS CHECK AS IT MAY OVERFLOW VERY EASILY
+            FHE.req(
+                FHE.gte(
+                    FHE.mul(balance0Adjusted, balance1Adjusted),
+                    FHE.mul(FHE.mul(_reserve0, _reserve1), FHE.asEuint32(1e6))
+                )
+            );
+        } */
+
+        _update(balance0, balance1);
+    }
 }
